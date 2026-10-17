@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dropsss</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --text: #1b1f24; --muted: #667080;
+    --border: #dde1e7; --accent: #2f6fed; --accent-soft: #e8efff; --ok: #1f9d55; --err: #d14343;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #111418; --card: #1a1e24; --text: #e6e9ee; --muted: #8a94a3;
+      --border: #2b313a; --accent: #5b8dff; --accent-soft: #1e2a44; --ok: #3cc47c; --err: #f06a6a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  main { max-width: 680px; margin: 40px auto; padding: 0 16px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 24px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+  .tabs { display: flex; flex-wrap: wrap; border-bottom: 2px solid var(--border); }
+  .card > .tabs { margin: -20px -20px 0; padding: 0 20px; }
+  .tab { padding: 10px 14px; border: 0; border-bottom: 2px solid transparent; margin-bottom: -2px; border-radius: 0; background: transparent; color: var(--muted); cursor: pointer; font: inherit; font-size: 14px; }
+  .tab:hover:not(.active) { color: var(--text); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+  .tab .dot { color: var(--ok); margin-left: 6px; font-size: 10px; vertical-align: 1px; }
+  .destline { margin: 14px 0 16px; color: var(--muted); font-size: 14px; }
+  .destline b { color: var(--text); font-weight: 600; }
+  #drop { border: 2px dashed var(--border); border-radius: 12px; padding: 48px 16px; text-align: center; cursor: pointer; transition: .15s; }
+  #drop.over { border-color: var(--accent); background: var(--accent-soft); }
+  #drop strong { display: block; font-size: 17px; margin-bottom: 4px; }
+  #drop span { color: var(--muted); }
+  .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 14px; }
+  label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 4px; }
+  input, select { width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); font: inherit; }
+  input:disabled, select:disabled { opacity: .55; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 520px) { .grid { grid-template-columns: 1fr; } }
+  button { padding: 8px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--card); color: var(--text); font: inherit; cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button:hover { filter: brightness(1.05); }
+  .item { border-top: 1px solid var(--border); padding: 12px 0; }
+  .item:first-child { border-top: 0; padding-top: 0; }
+  .name { font-weight: 600; word-break: break-all; }
+  .meta { color: var(--muted); font-size: 13px; }
+  .tag { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); margin-left: 6px; vertical-align: 1px; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; margin-top: 6px; }
+  .bar > div { height: 100%; width: 0; background: var(--accent); transition: width .1s; }
+  .ok { color: var(--ok); } .err { color: var(--err); }
+  .expired { opacity: .5; }
+  details summary { cursor: pointer; font-weight: 600; }
+  #settingsBox { margin-top: 18px; border-top: 1px solid var(--border); padding-top: 16px; }
+  details.setup { margin-top: 16px; border-top: 1px solid var(--border); padding-top: 14px; }
+  pre { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px; overflow-x: auto; font-size: 12px; }
+  code { background: var(--bg); border: 1px solid var(--border); border-radius: 5px; padding: 1px 5px; font-size: 12px; }
+  .hint { color: var(--muted); font-size: 13px; margin-top: 10px; }
+  .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--bg); padding: 8px 16px; border-radius: 8px; opacity: 0; transition: .2s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Dropsss</h1>
+  <p class="sub">Drop a file, get a temporary download link. Your cloud, your keys, no server.</p>
+
+  <div class="card">
+    <div class="tabs" id="tabs" role="radiogroup" aria-label="Upload destination"></div>
+    <div class="destline" id="destline"></div>
+    <div id="drop">
+      <strong>Drop files here</strong>
+      <span>or click to choose</span>
+      <input type="file" id="picker" multiple hidden>
+    </div>
+    <div class="row">
+      <div style="flex:1; min-width:180px">
+        <label for="expiry">Link expires after</label>
+        <select id="expiry"></select>
+      </div>
+    </div>
+    <details id="settingsBox">
+      <summary id="settingsTitle">Settings</summary>
+      <p class="meta">Stored only in this browser (localStorage) on this machine.</p>
+      <div class="grid" id="fields"></div>
+      <div class="row">
+        <button class="primary" id="save">Save</button>
+        <button id="forget">Forget credentials</button>
+      </div>
+      <details class="setup" id="setupBox">
+        <summary>One time setup</summary>
+        <p class="hint">Quick version below. Full per-provider guide in the <a href="README.md" target="_blank" rel="noopener">README</a>.</p>
+        <div id="setup"></div>
+      </details>
+    </details>
+  </div>
+
+  <div class="card" id="listCard" hidden>
+    <div id="list"></div>
+    <div class="row"><button id="clearHistory">Clear history</button></div>
+  </div>
+
+  <p class="sub" style="text-align:center; margin: 4px 0 0">
+    <a href="README.md" target="_blank" rel="noopener">Setup guide &amp; docs</a>
+  </p>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+  del(k) { try { localStorage.removeItem(k); } catch {} }
+};
+
+// ---------- crypto helpers (no SDK needed) ----------
+const enc = new TextEncoder();
+const hex = buf => [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+const sha256 = async s => hex(await crypto.subtle.digest('SHA-256', enc.encode(s)));
+async function hmac(key, msg) {
+  const k = await crypto.subtle.importKey('raw', typeof key === 'string' ? enc.encode(key) : key, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  return crypto.subtle.sign('HMAC', k, enc.encode(msg));
+}
+const rfc3986 = s => encodeURIComponent(s).replace(/[!'()*]/g, c => '%' + c.charCodeAt(0).toString(16).toUpperCase());
+const encPath = (...parts) => '/' + parts.flatMap(p => String(p).split('/')).filter(Boolean).map(rfc3986).join('/');
+function randomId() { return hex(crypto.getRandomValues(new Uint8Array(8))); }
+
+// SigV4-style query presigning, shared by AWS (AWS4) and GCS (GOOG4).
+async function presign(cfg, { method, host, uri, expires, extraQuery = {} }) {
+  const now = new Date();
+  const amzDate = now.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+  const date = amzDate.slice(0, 8);
+  const scope = `${date}/${cfg.region}/${cfg.service}/${cfg.terminator}`;
+  const hp = cfg.headerPrefix;
+  const q = {
+    [`${hp}-Algorithm`]: cfg.algo,
+    [`${hp}-Credential`]: `${cfg.akid}/${scope}`,
+    [`${hp}-Date`]: amzDate,
+    [`${hp}-Expires`]: String(expires),
+    [`${hp}-SignedHeaders`]: 'host',
+    ...extraQuery
+  };
+  const query = Object.keys(q).sort().map(k => `${rfc3986(k)}=${rfc3986(q[k])}`).join('&');
+  const canonical = [method, uri, query, `host:${host}\n`, 'host', 'UNSIGNED-PAYLOAD'].join('\n');
+  const toSign = [cfg.algo, amzDate, scope, await sha256(canonical)].join('\n');
+  let k = await hmac(cfg.scheme + cfg.secret, date);
+  k = await hmac(k, cfg.region); k = await hmac(k, cfg.service); k = await hmac(k, cfg.terminator);
+  const sig = hex(await hmac(k, toSign));
+  return `https://${host}${uri}?${query}&${hp}-Signature=${sig}`;
+}
+
+function xhr(method, url, body, headers, onProgress) {
+  return new Promise((resolve, reject) => {
+    const x = new XMLHttpRequest();
+    x.open(method, url);
+    for (const h in headers) x.setRequestHeader(h, headers[h]);
+    if (x.upload && onProgress) x.upload.onprogress = e => e.lengthComputable && onProgress(e.loaded / e.total);
+    x.onload = () => {
+      if (x.status >= 200 && x.status < 300) return resolve(x.responseText);
+      const msg = (x.responseText.match(/<Message>(.*?)<\/Message>/) || [])[1]
+        || (x.responseText.match(/"error_summary"\s*:\s*"(.*?)"/) || [])[1]
+        || `request failed (${x.status})`;
+      reject(new Error(`${x.status}: ${msg}`));
+    };
+    x.onerror = () => reject(new Error('Network or CORS error. Check the bucket/app CORS setup below.'));
+    x.send(body);
+  });
+}
+
+// Dropbox-API-Arg must be HTTP-header safe: escape any non-ASCII.
+const asciiJson = o => JSON.stringify(o).replace(/[\u007f-￿]/g, c => '\\u' + c.charCodeAt(0).toString(16).padStart(4, '0'));
+
+// ---------- migrate from the earlier single-provider (s3drop.*) version ----------
+try {
+  if (localStorage.getItem('s3drop.settings') && !localStorage.getItem('drop.settings')) {
+    const old = JSON.parse(localStorage.getItem('s3drop.settings'));
+    store.set('drop.settings', { s3: old });
+    const exp = localStorage.getItem('s3drop.expiry'); if (exp) localStorage.setItem('drop.expiry', exp);
+    const hist = localStorage.getItem('s3drop.history');
+    if (hist) store.set('drop.history', JSON.parse(hist).map(e => ({ provider: 'AWS S3', ...e })));
+  }
+} catch {}
+
+// ---------- providers ----------
+const GB = 1024 ** 3, MB = 1024 ** 2;
+const dispo = name => `attachment; filename*=UTF-8''${rfc3986(name)}`;
+
+// Shared flow for S3-compatible + GCS: presign PUT, upload, presign GET.
+function signedProvider(o) {
+  return {
+    id: o.id, label: o.label, fields: o.fields, setup: o.setup,
+    maxExpiry: 604800, maxFile: 5 * GB,
+    async run(s, file, expires, onProgress) {
+      const prefix = s.prefix ? (s.prefix.endsWith('/') ? s.prefix : s.prefix + '/') : '';
+      const key = `${prefix}${randomId()}/${file.name}`;
+      const { host, uri } = o.endpoint(s, key);
+      const cfg = o.sigCfg(s);
+      const putUrl = await presign(cfg, { method: 'PUT', host, uri, expires: 900 });
+      await xhr('PUT', putUrl, file, file.type ? { 'Content-Type': file.type } : {}, onProgress);
+      return await presign(cfg, { method: 'GET', host, uri, expires, extraQuery: { 'response-content-disposition': dispo(file.name) } });
+    }
+  };
+}
+
+const PROVIDERS = {
+  s3: signedProvider({
+    id: 's3', label: 'AWS S3',
+    fields: [
+      { k: 'bucket', label: 'Bucket', placeholder: 'my-share-bucket', req: true },
+      { k: 'region', label: 'Region', placeholder: 'us-west-2', req: true },
+      { k: 'akid', label: 'Access key ID', req: true },
+      { k: 'secret', label: 'Secret access key', type: 'password', req: true },
+      { k: 'prefix', label: 'Key prefix', placeholder: 'share/', def: 'share/' }
+    ],
+    endpoint: (s, key) => ({ host: `${s.bucket}.s3.${s.region}.amazonaws.com`, uri: encPath(key) }),
+    sigCfg: s => ({ scheme: 'AWS4', algo: 'AWS4-HMAC-SHA256', headerPrefix: 'X-Amz', region: s.region, service: 's3', terminator: 'aws4_request', akid: s.akid, secret: s.secret }),
+    setup: `<p><strong>1. CORS</strong> (bucket → Permissions → CORS):</p>
+<pre>[{ "AllowedOrigins": ["*"], "AllowedMethods": ["PUT"],
+   "AllowedHeaders": ["*"], "ExposeHeaders": ["ETag"], "MaxAgeSeconds": 3000 }]</pre>
+<p><strong>2. Lifecycle</strong> (Management): expire objects under prefix <code>share/</code> after 7 days.</p>
+<p><strong>3. IAM user</strong> with this inline policy, then create an access key:</p>
+<pre>{ "Version": "2012-10-17", "Statement": [{ "Effect": "Allow",
+  "Action": ["s3:PutObject", "s3:GetObject"],
+  "Resource": "arn:aws:s3:::YOUR-BUCKET/share/*" }] }</pre>
+<p class="hint">Keep Block Public Access on — links work because they are signed. Single PUT maxes at 5 GB.</p>`
+  }),
+
+  r2: signedProvider({
+    id: 'r2', label: 'Cloudflare R2',
+    fields: [
+      { k: 'account', label: 'Account ID', placeholder: 'from the R2 S3 endpoint', req: true },
+      { k: 'bucket', label: 'Bucket', req: true },
+      { k: 'akid', label: 'Access key ID', req: true },
+      { k: 'secret', label: 'Secret access key', type: 'password', req: true },
+      { k: 'prefix', label: 'Key prefix', placeholder: 'share/', def: 'share/' }
+    ],
+    endpoint: (s, key) => ({ host: `${s.account}.r2.cloudflarestorage.com`, uri: encPath(s.bucket, key) }),
+    sigCfg: s => ({ scheme: 'AWS4', algo: 'AWS4-HMAC-SHA256', headerPrefix: 'X-Amz', region: 'auto', service: 's3', terminator: 'aws4_request', akid: s.akid, secret: s.secret }),
+    setup: `<p>R2 speaks the S3 API, so signing is identical (region <code>auto</code>).</p>
+<p><strong>1. API token</strong>: R2 → <em>Manage R2 API Tokens</em> → create an <em>Object Read &amp; Write</em> token for your bucket. It gives an Access Key ID, a Secret, and an S3 endpoint <code>https://&lt;account-id&gt;.r2.cloudflarestorage.com</code> — the account ID goes in the field above.</p>
+<p><strong>2. CORS</strong> (bucket → Settings → CORS policy):</p>
+<pre>[{ "AllowedOrigins": ["*"], "AllowedMethods": ["PUT"],
+   "AllowedHeaders": ["*"], "ExposeHeaders": ["ETag"] }]</pre>
+<p><strong>3. Lifecycle</strong> (bucket → Settings → Object lifecycle rules): delete objects under <code>share/</code> after 7 days.</p>`
+  }),
+
+  b2: signedProvider({
+    id: 'b2', label: 'Backblaze B2',
+    fields: [
+      { k: 'bucket', label: 'Bucket', req: true },
+      { k: 'region', label: 'Region', placeholder: 'us-west-004', req: true },
+      { k: 'akid', label: 'Key ID', req: true },
+      { k: 'secret', label: 'Application key', type: 'password', req: true },
+      { k: 'prefix', label: 'Key prefix', placeholder: 'share/', def: 'share/' }
+    ],
+    endpoint: (s, key) => ({ host: `s3.${s.region}.backblazeb2.com`, uri: encPath(s.bucket, key) }),
+    sigCfg: s => ({ scheme: 'AWS4', algo: 'AWS4-HMAC-SHA256', headerPrefix: 'X-Amz', region: s.region, service: 's3', terminator: 'aws4_request', akid: s.akid, secret: s.secret }),
+    setup: `<p>B2 offers an S3-compatible endpoint, so signing matches AWS. The region is the one in your S3 endpoint, e.g. <code>us-west-004</code>.</p>
+<p><strong>1. Application key</strong>: Backblaze → <em>Application Keys</em> → add a key limited to your bucket. Copy the <em>keyID</em> and <em>applicationKey</em>.</p>
+<p><strong>2. CORS</strong>: allow <code>s3_put</code> from any origin. With the B2 CLI:</p>
+<pre>b2 bucket update YOUR-BUCKET allPrivate --cors-rules '[{
+  "corsRuleName": "drop",
+  "allowedOrigins": ["*"], "allowedOperations": ["s3_put"],
+  "allowedHeaders": ["*"], "exposeHeaders": ["etag"], "maxAgeSeconds": 3000 }]'</pre>
+<p><strong>3. Lifecycle</strong> (bucket settings): keep only the last version and hide-then-delete after 7 days.</p>`
+  }),
+
+  gcs: signedProvider({
+    id: 'gcs', label: 'Google Cloud Storage',
+    fields: [
+      { k: 'bucket', label: 'Bucket', req: true },
+      { k: 'akid', label: 'HMAC access ID', placeholder: 'GOOG...', req: true },
+      { k: 'secret', label: 'HMAC secret', type: 'password', req: true },
+      { k: 'prefix', label: 'Key prefix', placeholder: 'share/', def: 'share/' }
+    ],
+    endpoint: (s, key) => ({ host: 'storage.googleapis.com', uri: encPath(s.bucket, key) }),
+    sigCfg: s => ({ scheme: 'GOOG4', algo: 'GOOG4-HMAC-SHA256', headerPrefix: 'X-Goog', region: 'auto', service: 'storage', terminator: 'goog4_request', akid: s.akid, secret: s.secret }),
+    setup: `<p>GCS uses the same V4 scheme as AWS under the name <code>GOOG4-HMAC-SHA256</code>.</p>
+<p><strong>1. HMAC key</strong>: Cloud Storage → Settings → <em>Interoperability</em> → create an HMAC key for a service account. The access ID starts with <code>GOOG</code>.</p>
+<p><strong>2. Grant</strong> that service account object create/read on the bucket (role <em>Storage Object Admin</em>, or a custom role with <code>storage.objects.create</code> and <code>storage.objects.get</code>).</p>
+<p><strong>3. CORS</strong> (<code>cors.json</code> with <code>["PUT"]</code> methods, then):</p>
+<pre>gcloud storage buckets update gs://YOUR-BUCKET --cors-file=cors.json</pre>
+<p><strong>4. Lifecycle</strong>: delete objects after 7 days via a lifecycle rule on the bucket.</p>`
+  }),
+
+  dropbox: {
+    id: 'dropbox', label: 'Dropbox',
+    maxExpiry: 14400, fixedExpiry: 14400, maxFile: 150 * MB,
+    fields: [
+      { k: 'token', label: 'Access token', type: 'password', req: true },
+      { k: 'prefix', label: 'Folder', placeholder: '/drop/', def: '/drop/' }
+    ],
+    async run(s, file, expires, onProgress) {
+      const folder = ('/' + (s.prefix || 'drop') + '/').replace(/\/+/g, '/');
+      const path = `${folder}${randomId()}/${file.name}`.replace(/\/+/g, '/');
+      await xhr('POST', 'https://content.dropboxapi.com/2/files/upload', file, {
+        'Authorization': 'Bearer ' + s.token,
+        'Dropbox-API-Arg': asciiJson({ path, mode: 'add', autorename: true, mute: true }),
+        'Content-Type': 'application/octet-stream'
+      }, onProgress);
+      const res = await xhr('POST', 'https://api.dropboxapi.com/2/files/get_temporary_link',
+        JSON.stringify({ path }), { 'Authorization': 'Bearer ' + s.token, 'Content-Type': 'application/json' });
+      return JSON.parse(res).link;
+    },
+    setup: `<p>Dropbox links are fixed at <strong>4 hours</strong>, and the access token is short-lived (~4 h), so you re-paste it when it expires.</p>
+<p><strong>1. App</strong>: <em>Dropbox App Console</em> → Create app → <em>Scoped access</em>, pick Full Dropbox or App folder.</p>
+<p><strong>2. Permissions</strong> tab: enable <code>files.content.write</code> and <code>files.content.read</code>, then Submit.</p>
+<p><strong>3. Token</strong>: Settings tab → <em>Generated access token</em> → Generate, and paste it above.</p>
+<p class="hint">No bucket, no CORS setup — Dropbox handles both. Single upload maxes at 150 MB.</p>`
+  }
+};
+const ORDER = ['s3', 'r2', 'b2', 'dropbox', 'gcs'];
+
+// ---------- state ----------
+let active = store.get('drop.provider', 's3');
+if (!PROVIDERS[active]) active = 's3';
+const allSettings = () => store.get('drop.settings', {});
+const settingsFor = id => allSettings()[id] || {};
+function isConfigured(id) {
+  const s = settingsFor(id);
+  return PROVIDERS[id].fields.filter(f => f.req).every(f => s[f.k]);
+}
+
+const EXPIRY = [[3600, '1 hour'], [86400, '1 day'], [259200, '3 days'], [604800, '7 days (max)']];
+
+// ---------- rendering ----------
+function renderTabs() {
+  const tabs = $('tabs'); tabs.innerHTML = '';
+  ORDER.forEach(id => {
+    const b = document.createElement('button');
+    b.className = 'tab' + (id === active ? ' active' : '');
+    b.setAttribute('role', 'radio');
+    b.setAttribute('aria-checked', id === active);
+    b.innerHTML = PROVIDERS[id].label + (isConfigured(id) ? '<span class="dot">●</span>' : '');
+    b.onclick = () => { active = id; store.set('drop.provider', id); selectProvider(); };
+    tabs.append(b);
+  });
+}
+
+function renderFields() {
+  const p = PROVIDERS[active], s = settingsFor(active), box = $('fields');
+  box.innerHTML = '';
+  p.fields.forEach(f => {
+    const cell = document.createElement('div');
+    const val = s[f.k] !== undefined ? s[f.k] : (f.def || '');
+    cell.innerHTML = `<label>${f.label}</label>`;
+    const inp = document.createElement('input');
+    inp.id = 'f_' + f.k; inp.type = f.type || 'text'; inp.autocomplete = 'off';
+    if (f.placeholder) inp.placeholder = f.placeholder;
+    inp.value = val;
+    cell.append(inp); box.append(cell);
+  });
+}
+
+function renderExpiry() {
+  const p = PROVIDERS[active], sel = $('expiry');
+  sel.innerHTML = '';
+  if (p.fixedExpiry) {
+    sel.innerHTML = `<option>${fmtDur(p.fixedExpiry)} (fixed)</option>`;
+    sel.disabled = true;
+    return;
+  }
+  sel.disabled = false;
+  const saved = String(store.get('drop.expiry', '86400'));
+  EXPIRY.filter(([v]) => v <= p.maxExpiry).forEach(([v, lbl]) => {
+    const o = document.createElement('option');
+    o.value = v; o.textContent = lbl; if (String(v) === saved) o.selected = true;
+    sel.append(o);
+  });
+}
+
+function selectProvider() {
+  renderTabs(); renderFields(); renderExpiry();
+  const cfg = isConfigured(active);
+  $('destline').innerHTML = `Dropped files upload to <b>${PROVIDERS[active].label}</b> — one destination at a time.`
+    + (cfg ? '' : ' <span class="err">Not configured yet.</span>');
+  $('settingsTitle').textContent = 'Settings — ' + PROVIDERS[active].label;
+  $('setup').innerHTML = PROVIDERS[active].setup;
+  $('settingsBox').open = !cfg;
+  $('setupBox').open = !cfg;
+}
+
+function readFields() {
+  const s = {};
+  PROVIDERS[active].fields.forEach(f => s[f.k] = $('f_' + f.k).value.trim());
+  return s;
+}
+$('save').onclick = () => {
+  const all = allSettings(); all[active] = readFields(); store.set('drop.settings', all);
+  toast('Saved'); selectProvider();
+};
+$('forget').onclick = () => {
+  const all = allSettings(), s = all[active] || {};
+  PROVIDERS[active].fields.forEach(f => { if (f.type === 'password' || f.k === 'akid' || f.k === 'token') s[f.k] = ''; });
+  all[active] = s; store.set('drop.settings', all);
+  selectProvider(); toast('Credentials removed');
+};
+$('expiry').onchange = () => { if (!$('expiry').disabled) store.set('drop.expiry', $('expiry').value); };
+
+// ---------- upload ----------
+async function handleFiles(files) {
+  const p = PROVIDERS[active], s = settingsFor(active);
+  if (!isConfigured(active)) { $('settingsBox').open = true; toast('Fill in settings first'); return; }
+  const expires = p.fixedExpiry || Number($('expiry').value);
+  for (const file of files) {
+    if (p.maxFile && file.size > p.maxFile) {
+      renderItem({ name: file.name, status: 'error', error: `Too big for ${p.label} (max ${fmtSize(p.maxFile)} per upload)` }, true);
+      continue;
+    }
+    const entry = { name: file.name, size: file.size, provider: p.label, created: Date.now(), expiresAt: Date.now() + expires * 1000, status: 'uploading' };
+    const el = renderItem(entry, true);
+    try {
+      entry.url = await p.run(s, file, expires, prog => el.querySelector('.bar > div').style.width = (prog * 100) + '%');
+      entry.status = 'done';
+      const hist = store.get('drop.history', []); hist.unshift(entry); store.set('drop.history', hist.slice(0, 50));
+      try { await navigator.clipboard.writeText(entry.url); toast('Link copied'); } catch { toast('Uploaded'); }
+    } catch (e) {
+      entry.status = 'error'; entry.error = e.message;
+    }
+    el.replaceWith(renderItem(entry));
+  }
+}
+
+// ---------- history UI ----------
+function fmtSize(b) { const u = ['B', 'KB', 'MB', 'GB']; let i = 0; while (b >= 1024 && i < 3) { b /= 1024; i++; } return b.toFixed(i ? 1 : 0) + ' ' + u[i]; }
+function fmtDur(sec) { return sec < 3600 ? `${Math.round(sec / 60)} min` : sec < 86400 ? `${Math.round(sec / 3600)} hour${sec === 3600 ? '' : 's'}` : `${Math.round(sec / 86400)} day${sec === 86400 ? '' : 's'}`; }
+function fmtLeft(ms) {
+  if (ms <= 0) return 'expired';
+  const h = ms / 3600000;
+  return h < 1 ? `${Math.ceil(ms / 60000)} min left` : h < 48 ? `${Math.round(h)} h left` : `${Math.round(h / 24)} days left`;
+}
+function renderItem(e, prepend) {
+  $('listCard').hidden = false;
+  const div = document.createElement('div');
+  div.className = 'item' + (e.status === 'done' && e.expiresAt < Date.now() ? ' expired' : '');
+  const meta = e.status === 'uploading' ? 'Uploading…'
+    : e.status === 'error' ? `<span class="err">${e.error}</span>`
+    : `${fmtSize(e.size)} · <span class="ok">${fmtLeft(e.expiresAt - Date.now())}</span>`;
+  div.innerHTML = `<div class="name"></div><div class="meta">${meta}</div>` +
+    (e.status === 'uploading' ? '<div class="bar"><div></div></div>' : '') +
+    (e.status === 'done' && e.expiresAt > Date.now() ? '<div class="row"><button class="primary copy">Copy link</button><button class="open">Test download</button></div>' : '');
+  const name = div.querySelector('.name');
+  name.textContent = e.name;
+  if (e.provider) { const t = document.createElement('span'); t.className = 'tag'; t.textContent = e.provider; name.append(t); }
+  const c = div.querySelector('.copy'); if (c) c.onclick = () => navigator.clipboard.writeText(e.url).then(() => toast('Link copied'));
+  const o = div.querySelector('.open'); if (o) o.onclick = () => window.open(e.url, '_blank');
+  const list = $('list');
+  prepend ? list.prepend(div) : list.append(div);
+  return div;
+}
+function renderHistory() {
+  $('list').innerHTML = '';
+  const hist = store.get('drop.history', []);
+  $('listCard').hidden = !hist.length;
+  hist.forEach(e => renderItem(e));
+}
+$('clearHistory').onclick = () => { store.del('drop.history'); renderHistory(); };
+
+let toastTimer;
+function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 1800); }
+
+// ---------- wiring ----------
+const drop = $('drop');
+drop.onclick = () => $('picker').click();
+$('picker').onchange = e => { handleFiles([...e.target.files]); e.target.value = ''; };
+['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', e => handleFiles([...e.dataTransfer.files]));
+window.addEventListener('dragover', e => e.preventDefault());
+window.addEventListener('drop', e => e.preventDefault());
+
+selectProvider();
+renderHistory();
+</script>
+</body>
+</html>
