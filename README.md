@@ -1,5 +1,7 @@
 # Dropsss
 
+<img src="icon.png" alt="Dropsss icon" width="300" height="300">
+
 Drop a file, get a temporary download link. Your cloud, your keys, no server.
 
 Dropsss is a single HTML file that uploads files straight from your browser to **your own** cloud storage — AWS S3, Cloudflare R2, Backblaze B2, Google Cloud Storage, or Dropbox — and gives you a link that expires on its own. No backend, no install, no SDK. Open the file in your browser and drag something in.
